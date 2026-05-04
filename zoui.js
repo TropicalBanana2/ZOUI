@@ -422,6 +422,7 @@ class ZOUI {
             b.innerText = label;
             b.onclick = cb;
             el.appendChild(b);
+            this._registerFeature(tab, label, b);
         });
         this.tabs[tab].appendChild(el);
     }
