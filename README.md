@@ -20,7 +20,7 @@ Drop it into any userscript to get a polished, tabbed settings panel that matche
 Copy the contents of `zoui.js` into the **top** of your userscript (before any code that uses it), or load it as a `@require` in a Tampermonkey/Violentmonkey header:
 
 ```js
-// @require  https://raw.githubusercontent.com/TropicalBanana2/ZOUI/main/zoui.js
+// @require  https://raw.githubusercontent.com/TropicalBanana2/ZOUI/refs/heads/main/zoui.js
 ```
 
 ---
