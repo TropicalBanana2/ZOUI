@@ -700,6 +700,17 @@ class ZOUI {
      * @param {string[]}  items    - Full list of option strings
      * @param {function}  callback - Called with the selected item string
      */
+    /**
+     * Add a filterable list. Returns a **SearchListController** for dynamic item management.
+     *
+     * SearchListController methods:
+     *   .addItem(label)      — append a new item
+     *   .removeItem(label)   — remove an item by label
+     *   .clear()             — remove all items
+     *   .getValue()          — currently selected label (or null)
+     *   .setValue(label)     — programmatically select an item
+     *   .value               — readable/writable shorthand
+     */
     addSearchList(tab, label, items, callback) {
         const el = document.createElement("div");
         el.className = "zui-item";
@@ -720,6 +731,21 @@ class ZOUI {
         render();
         this.tabs[tab].appendChild(el);
         this._registerFeature(tab, label, el);
+
+        return {
+            addItem(item)    { if (!items.includes(item)) items.push(item); render(input.value); },
+            removeItem(item) {
+                const i = items.indexOf(item);
+                if (i !== -1) items.splice(i, 1);
+                if (selected === item) selected = null;
+                render(input.value);
+            },
+            clear()          { items.length = 0; selected = null; render(input.value); },
+            getValue()       { return selected; },
+            setValue(item)   { selected = items.includes(item) ? item : null; render(input.value); },
+            get value()      { return selected; },
+            set value(item)  { this.setValue(item); },
+        };
     }
 
     /**

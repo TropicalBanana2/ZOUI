@@ -191,13 +191,31 @@ const sel = ui.addSelect(tab, "Difficulty", [
 ---
 
 #### `addSearchList(tab, label, items, callback)`
-Add a filterable list where items can be clicked to select them.
+Add a filterable list where items can be clicked to select them. Returns a **SearchListController** for dynamic item management.
 
 ```js
-ui.addSearchList(tab, "Tower Type",
+const list = ui.addSearchList(tab, "Tower Type",
     ["Wall", "Arrow Tower", "Cannon Tower", "Magic Tower"],
     item => console.log("Selected:", item)
 );
+```
+
+**SearchListController:**
+
+| Method | Description |
+|--------|-------------|
+| `list.addItem(label)` | Append a new item |
+| `list.removeItem(label)` | Remove an item by label |
+| `list.clear()` | Remove all items |
+| `list.getValue()` | Return the currently selected label (or `null`) |
+| `list.setValue(label)` | Programmatically select an item |
+| `list.value` | Readable/writable shorthand for `getValue` / `setValue` |
+
+```js
+list.addItem("Bomb Tower");
+list.removeItem("Wall");
+console.log(list.getValue()); // currently selected item
+list.clear();
 ```
 
 ---
