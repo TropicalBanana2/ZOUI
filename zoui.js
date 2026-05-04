@@ -442,24 +442,50 @@ class ZOUI {
 
     /**
      * Add a dropdown select.
+     *
      * @param {Array<{value, label}>} options - Initial option list
      * @param {function} callback             - Called with (value) on change
-     * @returns {HTMLSelectElement}           - The <select> element for dynamic updates
+     * @returns {SelectController}
+     *   .addOption(value, label)  — append a new option, returns the <option> element
+     *   .removeOption(value)      — remove option by value
+     *   .clear()                  — remove all options
+     *   .getValue()               — return currently selected value
+     *   .setValue(value)          — programmatically select an option
+     *   .element                  — the raw <select> element
      */
     addSelect(tab, label, options, callback) {
         const el = document.createElement("div");
         el.className = "zui-item";
         el.innerHTML = `<span class="zui-field-label">${label}</span><select class="zui-select"></select>`;
         const sel = el.querySelector("select");
+
         options.forEach(({ value, label: text }) => {
             const opt = document.createElement("option");
             opt.value = value; opt.textContent = text;
             sel.appendChild(opt);
         });
+
         sel.onchange = () => callback(sel.value);
         this.tabs[tab].appendChild(el);
         this._registerFeature(tab, label, el);
-        return sel;
+
+        return {
+            element: sel,
+            get value() { return sel.value; },
+            set value(v) { sel.value = v; },
+            addOption(value, label) {
+                const opt = document.createElement("option");
+                opt.value = value; opt.textContent = label;
+                sel.appendChild(opt);
+                return opt;
+            },
+            removeOption(value) {
+                sel.querySelector(`option[value="${CSS.escape(value)}"]`)?.remove();
+            },
+            clear() { sel.innerHTML = ""; },
+            getValue() { return sel.value; },
+            setValue(v) { sel.value = v; },
+        };
     }
 
     /**

@@ -163,7 +163,7 @@ ui.addTextbox(tab, "Username", "Enter name...", value => {
 ---
 
 #### `addSelect(tab, label, options, callback)`
-Add a dropdown select. Returns the `<select>` element so you can add/remove options dynamically.
+Add a dropdown select. Returns a **SelectController** for dynamic option management.
 
 ```js
 const sel = ui.addSelect(tab, "Difficulty", [
@@ -173,11 +173,27 @@ const sel = ui.addSelect(tab, "Difficulty", [
 ], value => {
     console.log("Selected:", value);
 });
+```
 
-// Dynamically add an option later:
-const opt = document.createElement("option");
-opt.value = "expert"; opt.textContent = "Expert";
-sel.appendChild(opt);
+**SelectController methods:**
+
+| Method | Description |
+|--------|-------------|
+| `sel.addOption(value, label)` | Append a new option, returns the `<option>` element |
+| `sel.removeOption(value)` | Remove an option by its value |
+| `sel.clear()` | Remove all options |
+| `sel.getValue()` | Return the currently selected value |
+| `sel.setValue(value)` | Programmatically select an option |
+| `sel.value` | Readable/writable shorthand for `getValue`/`setValue` |
+| `sel.element` | The raw `<select>` DOM element |
+
+```js
+// Dynamic usage:
+sel.addOption("expert", "Expert");
+sel.removeOption("easy");
+sel.setValue("medium");
+console.log(sel.getValue()); // "medium"
+sel.clear(); // remove all options
 ```
 
 ---
