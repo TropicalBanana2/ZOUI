@@ -543,6 +543,7 @@ class ZOUI {
                 callback(v);
             };
             row.appendChild(pill);
+            this._registerFeature(tab, `${label} v${v}`, pill);
         });
 
         this.tabs[tab].appendChild(el);
