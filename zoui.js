@@ -96,12 +96,12 @@ class ZOUI {
 
             /* Search bar */
             .zui-global-search {
-                position:relative;padding:8px 12px;background:#2b2d31;
+                position:relative;padding:12px 12px;background:#2b2d31;
                 border-bottom:1px solid rgba(0,0,0,0.25);flex-shrink:0;
             }
             .zui-search-icon { position:absolute;left:22px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:0.7; }
             .zui-global-search input {
-                width:100%;height:34px;padding:0 10px 0 34px;
+                width:100%;height:40px;padding:0 10px 0 44px;
                 background:#1e1f22;border:1px solid rgba(0,0,0,0.35);
                 border-radius:6px;color:#dcddde;font-size:13px;outline:none;transition:border-color 0.15s;
             }
