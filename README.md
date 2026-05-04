@@ -7,70 +7,71 @@ Drop it into any userscript to get a polished, tabbed settings panel that matche
 
 ## Features
 
-- Sidebar navigation with tabs
-- Global search bar across all settings
-- Toggles, sliders, buttons, dropdowns, text inputs, search lists
-- Version switcher with header badge sync
+- Sidebar navigation with tabs and built-in icons
+- Global fuzzy search bar across all settings (emoji-safe)
+- Toggles, sliders, buttons, button rows, dropdowns, text inputs, filterable search lists
+- Version switcher with automatic header badge sync
+- Top-center popup system — toasts, confirmation dialogs, input prompts
+- Live popup handles — update text, swap type, or dismiss programmatically (e.g. countdowns)
 - Zero dependencies — pure vanilla JS + CSS
 
 ---
 
 ## Installation
 
-Copy the contents of `zoui.js` into the **top** of your userscript (before any code that uses it), or load it as a `@require` in a Tampermonkey/Violentmonkey header:
+Load as a `@require` in Tampermonkey / Violentmonkey:
 
 ```js
 // @require  https://raw.githubusercontent.com/TropicalBanana2/ZOUI/refs/heads/main/zoui.js
 ```
+
+Or copy `zoui.js` directly into the top of your userscript before any code that uses it.
 
 ---
 
 ## Quick Start
 
 ```js
-// Mount onto the existing game settings container
 const ui = new ZOUI(document.querySelector("#hud-menu-settings"), "My Script", "1.0.0");
 
-// Add a tab
 const general = ui.addTab("General");
 
-// Add controls to the tab
 ui.addHeader(general, "Combat");
-ui.addToggle(general, "Auto Attack", false, enabled => {
-    // handle toggle
-});
-ui.addSlider(general, "Attack Speed", 1, 10, 5, value => {
-    // handle slider
-});
+ui.addToggle(general, "Auto Attack", false, enabled => { /* ... */ });
+ui.addSlider(general, "Attack Speed", 1, 10, 5, value => { /* ... */ });
+
+// Popup — returns a live handle
+const t = ui.toast("Wave incoming!", "warning", 0);
+setTimeout(() => t.dismiss(), 5000);
 ```
 
 ---
 
 ## API Reference
 
-### Constructor
+### `ZOUI` — Settings panel
+
+#### Constructor
 
 ```js
 new ZOUI(container, title?, version?)
 ```
 
-| Parameter   | Type        | Default    | Description                                      |
-|-------------|-------------|------------|--------------------------------------------------|
-| `container` | `Element`   | —          | DOM element to mount the UI into                 |
-| `title`     | `string`    | `"ZOUI"`   | Title shown in the header bar                    |
-| `version`   | `string`    | `"1.0.0"`  | Version string shown in the header badge         |
+| Parameter   | Type      | Default   | Description                              |
+|-------------|-----------|-----------|------------------------------------------|
+| `container` | `Element` | —         | DOM element to mount the UI into         |
+| `title`     | `string`  | `"ZOUI"`  | Title shown in the header bar            |
+| `version`   | `string`  | `"1.0.0"` | Version string shown in the header badge |
 
 ---
 
-### Instance Methods
-
 #### `addTab(name, icon?)`
-Add a tab to the sidebar. Returns the tab name, which is used as the first argument for all `add*` methods.
+Add a tab to the sidebar. Returns the tab name used as the first argument for all `add*` methods.
 
 ```js
 const tab = ui.addTab("Visuals");
-const tab = ui.addTab("Combat", "⚔️");                         // emoji icon
-const tab = ui.addTab("Player", "<svg>...</svg>");              // inline SVG
+const tab = ui.addTab("Combat", "⚔️");                          // emoji icon
+const tab = ui.addTab("Player", "<svg>...</svg>");               // inline SVG
 const tab = ui.addTab("Items",  "https://example.com/icon.png"); // image URL
 ```
 
@@ -97,11 +98,11 @@ ui.addDivider(tab);
 ---
 
 #### `addText(tab, text, tip?)`
-Add a plain text block, or a styled info callout when `tip` is `true`.
+Add a plain text block, or a styled blue info callout when `tip` is `true`.
 
 ```js
 ui.addText(tab, "Some descriptive text.");
-ui.addText(tab, "This feature is experimental.", true); // renders as a blue callout
+ui.addText(tab, "This feature is experimental.", true);
 ```
 
 ---
@@ -111,7 +112,7 @@ Add an on/off toggle row.
 
 ```js
 ui.addToggle(tab, "Show FPS", false, enabled => {
-    console.log("Toggle is now:", enabled);
+    console.log("Toggle:", enabled);
 });
 ```
 
@@ -122,7 +123,7 @@ Add a range slider.
 
 ```js
 ui.addSlider(tab, "FOV", 60, 120, 90, value => {
-    console.log("FOV set to:", value);
+    console.log("FOV:", value);
 });
 ```
 
@@ -133,18 +134,18 @@ Add a single button. Pass `true` for `secondary` to use the ghost style.
 
 ```js
 ui.addButton(tab, "Reset Defaults", () => resetAll());
-ui.addButton(tab, "Cancel", () => close(), true); // secondary style
+ui.addButton(tab, "Cancel", () => close(), true);
 ```
 
 ---
 
 #### `addButtonRow(tab, buttons)`
-Add multiple buttons in a horizontal row.
+Add multiple buttons in a horizontal row. Each button is individually searchable via the global search bar.
 
 ```js
 ui.addButtonRow(tab, [
     ["Build",  () => buildBase()],
-    ["Record", () => recordBase(), true],  // secondary
+    ["Record", () => recordBase(), true],  // secondary style
     ["Delete", () => deleteBase(), true],
 ]);
 ```
@@ -175,26 +176,17 @@ const sel = ui.addSelect(tab, "Difficulty", [
 });
 ```
 
-**SelectController methods:**
+**SelectController:**
 
 | Method | Description |
 |--------|-------------|
 | `sel.addOption(value, label)` | Append a new option, returns the `<option>` element |
-| `sel.removeOption(value)` | Remove an option by its value |
+| `sel.removeOption(value)` | Remove an option by value |
 | `sel.clear()` | Remove all options |
 | `sel.getValue()` | Return the currently selected value |
 | `sel.setValue(value)` | Programmatically select an option |
-| `sel.value` | Readable/writable shorthand for `getValue`/`setValue` |
+| `sel.value` | Readable/writable shorthand for `getValue` / `setValue` |
 | `sel.element` | The raw `<select>` DOM element |
-
-```js
-// Dynamic usage:
-sel.addOption("expert", "Expert");
-sel.removeOption("easy");
-sel.setValue("medium");
-console.log(sel.getValue()); // "medium"
-sel.clear(); // remove all options
-```
 
 ---
 
@@ -211,16 +203,13 @@ ui.addSearchList(tab, "Tower Type",
 ---
 
 #### `addVersionSwitcher(tab, label, versions, current, callback)`
-Add a row of version pill buttons. Clicking a pill highlights it and updates the header badge automatically.
+Add a row of version pill buttons. Clicking a pill highlights it and updates the header badge. Each pill is individually searchable.
 
 ```js
 ui.addVersionSwitcher(tab, "Script Version",
     ["1.0.0", "1.1.0", "2.0.0"],
     "2.0.0",
-    version => {
-        console.log("Switched to version:", version);
-        // load version-specific features here
-    }
+    version => console.log("Switched to:", version)
 );
 ```
 
@@ -244,34 +233,129 @@ ui.switchTab("Visuals");
 
 ---
 
-#### `toast(message, type?, duration?)`
-Show a brief auto-dismissing notification at the **top-center** of the screen.  
-Mounts to `document.body` with `position: fixed` — works over the game canvas.
+#### `toast(message, type?, duration?)` → `PopupHandle`
+#### `confirm(message, onConfirm, onCancel?)` → `PopupHandle`
+#### `input(message, onConfirm, onCancel?, placeholder?, defaultValue?)` → `PopupHandle`
 
-| Parameter  | Type     | Default  | Description                                      |
-|------------|----------|----------|--------------------------------------------------|
-| `message`  | `string` | —        | Text to display                                  |
+Convenience wrappers around `ZOUIPopup` — see the [ZOUIPopup](#ZOUIPopup--standalone-popup-system) section below for full documentation.
+
+---
+
+---
+
+### `ZOUIPopup` — Standalone popup system
+
+Can be used directly without a `ZOUI` instance. The `ZOUI` class creates one internally as `ui.popup` and exposes `toast`, `confirm`, and `input` as thin wrappers.
+
+```js
+// Standalone usage:
+const popup = new ZOUIPopup();
+popup.toast("Hello!", "success");
+
+// Via ZOUI (equivalent):
+ui.toast("Hello!", "success");
+
+// Access the internal instance directly:
+ui.popup.toast("Hello!", "success");
+```
+
+All three methods return a **PopupHandle** for live updates.
+
+---
+
+#### `toast(message, type?, duration?)` → `PopupHandle`
+
+Show a brief auto-dismissing notification at the **top-center** of the screen, over the game canvas.
+
+| Parameter  | Type     | Default  | Description                                       |
+|------------|----------|----------|---------------------------------------------------|
+| `message`  | `string` | —        | Text to display                                   |
 | `type`     | `string` | `"info"` | `"info"` · `"success"` · `"warning"` · `"error"` |
-| `duration` | `number` | `3000`   | Milliseconds before auto-dismiss                 |
+| `duration` | `number` | `3000`   | ms before auto-dismiss. **Pass `0` to disable.**  |
 
 ```js
 ui.toast("Base saved!");
 ui.toast("Build complete.", "success");
 ui.toast("Gold Stash not found.", "error");
 ui.toast("Wave incoming!", "warning", 5000);
+
+// No auto-dismiss — controlled manually:
+const t = ui.toast("Wave in 5s", "warning", 0);
 ```
 
 ---
 
-#### `confirm(message, onConfirm, onCancel?)`
-Show a top-center confirmation popup with **Confirm** and **Cancel** buttons.  
-Stays visible until the user clicks a button.
+#### `confirm(message, onConfirm, onCancel?)` → `PopupHandle`
+
+Show a top-center confirmation popup. Stays visible until dismissed.  
+**Enter** confirms · **Escape** cancels.
 
 ```js
 ui.confirm("Delete this base?",
     () => console.log("Confirmed!"),
     () => console.log("Cancelled.")
 );
+```
+
+---
+
+#### `input(message, onConfirm, onCancel?, placeholder?, defaultValue?)` → `PopupHandle`
+
+Show a top-center input popup with a text field. The field is auto-focused.  
+**Enter** confirms · **Escape** cancels. `onConfirm` receives the input value as a string.
+
+| Parameter      | Type       | Default | Description                       |
+|----------------|------------|---------|-----------------------------------|
+| `message`      | `string`   | —       | Label shown above the input field |
+| `onConfirm`    | `function` | —       | Called with `(value: string)`     |
+| `onCancel`     | `function` | `null`  | Called with no args on cancel     |
+| `placeholder`  | `string`   | `""`    | Input placeholder text            |
+| `defaultValue` | `string`   | `""`    | Pre-filled value                  |
+
+```js
+ui.input("Name your base:", name => saveBase(name), null, "Enter a name...");
+
+// Pre-filled (rename flow):
+ui.input("Rename base:", newName => rename(id, newName), null, "Enter a name...", currentName);
+```
+
+---
+
+#### `PopupHandle`
+
+Every popup method returns a live handle with three chainable methods:
+
+| Method | Description |
+|--------|-------------|
+| `handle.update(message)` | Rewrite the popup's message text in place |
+| `handle.setType(type)` | Swap the accent colour and icon (`"info"` · `"success"` · `"warning"` · `"error"`) |
+| `handle.dismiss()` | Fade out and remove (safe to call multiple times) |
+
+All methods return the handle so calls can be chained.
+
+```js
+// Countdown toast:
+let n = 5;
+const h = ui.toast(`Wave in ${n}s`, "warning", 0);
+const id = setInterval(() => {
+    n--;
+    if (n <= 0) {
+        clearInterval(id);
+        h.setType("error").update("Wave is here!");
+        setTimeout(() => h.dismiss(), 1500);
+    } else {
+        h.update(`Wave in ${n}s`);
+    }
+}, 1000);
+
+// Auto-cancelling confirm:
+let sec = 10;
+const c = ui.confirm(`Confirm? (${sec}s)`, onYes);
+const id = setInterval(() => {
+    sec--;
+    if (sec <= 0) { clearInterval(id); c.dismiss(); }
+    else c.update(`Confirm? (${sec}s)`);
+}, 1000);
 ```
 
 ---

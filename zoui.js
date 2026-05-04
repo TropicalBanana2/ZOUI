@@ -4,6 +4,208 @@
 //  License: MIT
 // ==============================================================
 
+// ── ZOUIPopup ────────────────────────────────────────────────────────────────
+//  Standalone popup / toast system. Used internally by ZOUI but can also be
+//  instantiated on its own: const popup = new ZOUIPopup();
+//
+//  Every method returns a live handle:
+//    handle.update(msg)   — rewrite the message text in place
+//    handle.setType(type) — swap accent colour + icon
+//    handle.dismiss()     — fade out and remove
+
+class ZOUIPopup {
+    static _COLORS = { info: "#5865f2", success: "#23a559", warning: "#f0b232", error: "#ed4245" };
+    static _ICONS  = {
+        info:    `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="rgba(88,101,242,0.25)"/><text x="8" y="12" text-anchor="middle" font-size="10" fill="#8b9cf4" font-weight="700">i</text></svg>`,
+        success: `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="rgba(35,165,89,0.2)"/><path d="M5 8.5l2 2 4-4" stroke="#23a559" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+        warning: `<svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 2.5L13.5 13H2.5z" fill="rgba(240,178,50,0.2)" stroke="#f0b232" stroke-width="1.4" stroke-linejoin="round"/><text x="8" y="12" text-anchor="middle" font-size="7.5" fill="#f0b232" font-weight="700">!</text></svg>`,
+        error:   `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="rgba(237,66,69,0.2)"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#ed4245" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    };
+
+    constructor() {
+        this._injectStyles();
+    }
+
+    _injectStyles() {
+        if (document.getElementById("zui-popup-styles")) return;
+        const s = document.createElement("style");
+        s.id = "zui-popup-styles";
+        s.innerHTML = `
+            @keyframes zui-in  { from{opacity:0;transform:translateY(-10px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+            @keyframes zui-out { from{opacity:1;transform:translateY(0) scale(1)} to{opacity:0;transform:translateY(-8px) scale(0.95)} }
+
+            .zui-toast-wrap {
+                position:fixed;top:20px;left:50%;transform:translateX(-50%);
+                z-index:999999;display:flex;flex-direction:column;align-items:center;
+                gap:8px;pointer-events:none;
+            }
+            .zui-toast {
+                pointer-events:auto;background:#2b2d31;border:1px solid rgba(0,0,0,0.5);
+                border-left:3px solid #5865f2;border-radius:8px;padding:11px 16px;
+                font-family:'gg sans','Noto Sans',sans-serif;font-size:13px;color:#dcddde;
+                display:flex;align-items:center;gap:10px;
+                box-shadow:0 4px 20px rgba(0,0,0,0.55);min-width:220px;max-width:480px;
+                animation:zui-in 0.2s ease forwards;
+            }
+            .zui-toast.zui-out { animation:zui-out 0.18s ease forwards; }
+            .zui-toast-icon { flex-shrink:0;display:flex;align-items:center; }
+
+            .zui-popup {
+                pointer-events:auto;background:#2b2d31;border:1px solid rgba(0,0,0,0.5);
+                border-top:2px solid #5865f2;border-radius:10px;padding:16px 18px;
+                font-family:'gg sans','Noto Sans',sans-serif;font-size:13px;color:#dcddde;
+                box-shadow:0 8px 28px rgba(0,0,0,0.65);min-width:260px;max-width:420px;
+                animation:zui-in 0.2s ease forwards;display:flex;flex-direction:column;gap:12px;
+            }
+            .zui-popup-msg { line-height:1.55;color:#dcddde; }
+            .zui-popup-btns { display:flex;gap:8px;justify-content:flex-end; }
+            .zui-popup-btns button { background:#5865f2;border:none;padding:7px 16px;border-radius:6px;color:white;cursor:pointer;font-size:13px;font-weight:500;transition:background 0.15s; }
+            .zui-popup-btns button:hover { background:#4752c4; }
+            .zui-popup-btns button.secondary { background:rgba(88,101,242,0.15);color:#8b9cf4; }
+            .zui-popup-btns button.secondary:hover { background:rgba(88,101,242,0.25); }
+            .zui-popup-input {
+                width:100%;padding:8px 10px;border-radius:6px;border:1px solid rgba(0,0,0,0.4);
+                background:#1e1f22;color:#dcddde;font-size:13px;font-family:'gg sans','Noto Sans',sans-serif;
+                outline:none;transition:border-color 0.15s;
+            }
+            .zui-popup-input::placeholder { color:#87898c; }
+            .zui-popup-input:focus        { border-color:#5865f2; }
+        `;
+        document.head.appendChild(s);
+    }
+
+    _container() {
+        let w = document.getElementById("zui-toast-wrap");
+        if (!w) {
+            w = document.createElement("div");
+            w.id = "zui-toast-wrap";
+            w.className = "zui-toast-wrap";
+            document.body.appendChild(w);
+        }
+        return w;
+    }
+
+    /** @returns a live handle for the given popup/toast element. */
+    _handle(el) {
+        return {
+            /** Rewrite the message text / HTML in place. Chainable. */
+            update(msg) {
+                const t = el.querySelector("[data-zui-msg]");
+                if (t) t.innerHTML = msg;
+                return this;
+            },
+            /** Swap the accent colour and icon. Chainable. */
+            setType(type) {
+                const c = ZOUIPopup._COLORS[type] ?? ZOUIPopup._COLORS.info;
+                el.style.borderLeftColor = c;
+                el.style.borderTopColor  = c;
+                const icon = el.querySelector(".zui-toast-icon");
+                if (icon) icon.innerHTML = ZOUIPopup._ICONS[type] ?? ZOUIPopup._ICONS.info;
+                return this;
+            },
+            /** Fade out and remove. */
+            dismiss() {
+                if (el._dismissed) return;
+                el._dismissed = true;
+                el.classList.add("zui-out");
+                el.addEventListener("animationend", () => el.remove(), { once: true });
+            },
+        };
+    }
+
+    /**
+     * Show a toast notification. Returns a live handle.
+     * Pass `duration = 0` to disable auto-dismiss (e.g. for countdowns).
+     *
+     * @param {string}  message
+     * @param {"info"|"success"|"warning"|"error"} [type="info"]
+     * @param {number}  [duration=3000]  ms before auto-dismiss; 0 = manual only
+     * @returns {{ update, setType, dismiss }}
+     */
+    toast(message, type = "info", duration = 3000) {
+        const el = document.createElement("div");
+        el.className = "zui-toast";
+        el.style.borderLeftColor = ZOUIPopup._COLORS[type] ?? ZOUIPopup._COLORS.info;
+        el.innerHTML = `<span class="zui-toast-icon">${ZOUIPopup._ICONS[type] ?? ZOUIPopup._ICONS.info}</span><span data-zui-msg>${message}</span>`;
+        this._container().appendChild(el);
+        const handle = this._handle(el);
+        if (duration > 0) setTimeout(() => handle.dismiss(), duration);
+        return handle;
+    }
+
+    /**
+     * Show a confirmation popup. Returns a live handle.
+     * Enter = confirm · Escape = cancel.
+     *
+     * @param {string}   message
+     * @param {function} onConfirm
+     * @param {function} [onCancel]
+     * @returns {{ update, setType, dismiss }}
+     */
+    confirm(message, onConfirm, onCancel = null) {
+        const el = document.createElement("div");
+        el.className = "zui-popup";
+        el.innerHTML = `
+            <div class="zui-popup-msg" data-zui-msg>${message}</div>
+            <div class="zui-popup-btns">
+                <button class="secondary zui-popup-cancel">Cancel</button>
+                <button class="zui-popup-confirm">Confirm</button>
+            </div>
+        `;
+        const close = (confirmed) => {
+            document.removeEventListener("keydown", onKey);
+            el.remove();
+            confirmed ? onConfirm?.() : onCancel?.();
+        };
+        el.querySelector(".zui-popup-confirm").onclick = () => close(true);
+        el.querySelector(".zui-popup-cancel").onclick  = () => close(false);
+        const onKey = e => {
+            if (e.key === "Enter")  close(true);
+            if (e.key === "Escape") close(false);
+        };
+        document.addEventListener("keydown", onKey);
+        this._container().appendChild(el);
+        return this._handle(el);
+    }
+
+    /**
+     * Show an input popup with a text field. Returns a live handle.
+     * The field is auto-focused. Enter = confirm · Escape = cancel.
+     *
+     * @param {string}   message
+     * @param {function} onConfirm        called with (value: string)
+     * @param {function} [onCancel]
+     * @param {string}   [placeholder=""]
+     * @param {string}   [defaultValue=""]
+     * @returns {{ update, setType, dismiss }}
+     */
+    input(message, onConfirm, onCancel = null, placeholder = "", defaultValue = "") {
+        const el = document.createElement("div");
+        el.className = "zui-popup";
+        el.innerHTML = `
+            <div class="zui-popup-msg" data-zui-msg>${message}</div>
+            <input class="zui-popup-input" type="text" placeholder="${placeholder}" value="${defaultValue}">
+            <div class="zui-popup-btns">
+                <button class="secondary zui-popup-cancel">Cancel</button>
+                <button class="zui-popup-confirm">Confirm</button>
+            </div>
+        `;
+        const inp = el.querySelector(".zui-popup-input");
+        const close = (confirmed) => { el.remove(); confirmed ? onConfirm?.(inp.value) : onCancel?.(); };
+        el.querySelector(".zui-popup-confirm").onclick = () => close(true);
+        el.querySelector(".zui-popup-cancel").onclick  = () => close(false);
+        inp.addEventListener("keydown", e => {
+            if (e.key === "Enter")  close(true);
+            if (e.key === "Escape") close(false);
+        });
+        this._container().appendChild(el);
+        setTimeout(() => inp.focus(), 30);
+        return this._handle(el);
+    }
+}
+
+// ── ZOUI ─────────────────────────────────────────────────────────────────────
+
 class ZOUI {
     /**
      * @param {Element} container  - DOM element to mount the UI into
@@ -62,6 +264,7 @@ class ZOUI {
 
         this._injectStyles();
         this._setupSearch();
+        this.popup = new ZOUIPopup();
     }
 
     // ── Internals ────────────────────────────────────────────────────────────
@@ -100,13 +303,14 @@ class ZOUI {
                 border-bottom:1px solid rgba(0,0,0,0.25);flex-shrink:0;
             }
             .zui-search-icon { position:absolute;left:22px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:0.7; }
-            .zui-global-search input {
+            /* 0,2,2 specificity — beats .zui-wrapper input[type="text"] (0,2,1) to keep icon padding */
+            .zui-wrapper .zui-global-search input[type="text"] {
                 width:100%;height:40px;padding:0 10px 0 44px;
                 background:#1e1f22;border:1px solid rgba(0,0,0,0.35);
                 border-radius:6px;color:#dcddde;font-size:13px;outline:none;transition:border-color 0.15s;
             }
-            .zui-global-search input::placeholder { color:#87898c; }
-            .zui-global-search input:focus        { border-color:#5865f2; }
+            .zui-wrapper .zui-global-search input[type="text"]::placeholder { color:#87898c; }
+            .zui-wrapper .zui-global-search input[type="text"]:focus        { border-color:#5865f2; }
             .zui-search-results {
                 position:absolute;top:calc(100% + 2px);left:12px;right:12px;
                 background:#111214;border:1px solid rgba(0,0,0,0.5);border-radius:8px;
@@ -211,40 +415,6 @@ class ZOUI {
             .zui-wrapper ::-webkit-scrollbar       { width:6px; }
             .zui-wrapper ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1);border-radius:10px; }
             .zui-wrapper ::-webkit-scrollbar-thumb:hover { background:#5865f2; }
-
-            /* ── Toast / Popup system ─────────────────────────────────────── */
-            @keyframes zui-in  { from{opacity:0;transform:translateY(-10px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
-            @keyframes zui-out { from{opacity:1;transform:translateY(0) scale(1)} to{opacity:0;transform:translateY(-8px) scale(0.95)} }
-
-            .zui-toast-wrap {
-                position:fixed;top:20px;left:50%;transform:translateX(-50%);
-                z-index:999999;display:flex;flex-direction:column;align-items:center;
-                gap:8px;pointer-events:none;
-            }
-            .zui-toast {
-                pointer-events:auto;background:#2b2d31;border:1px solid rgba(0,0,0,0.5);
-                border-left:3px solid #5865f2;border-radius:8px;padding:11px 16px;
-                font-family:'gg sans','Noto Sans',sans-serif;font-size:13px;color:#dcddde;
-                display:flex;align-items:center;gap:10px;
-                box-shadow:0 4px 20px rgba(0,0,0,0.55);min-width:220px;max-width:480px;
-                animation:zui-in 0.2s ease forwards;
-            }
-            .zui-toast.zui-out { animation:zui-out 0.18s ease forwards; }
-            .zui-toast-icon { flex-shrink:0;display:flex;align-items:center; }
-
-            .zui-popup {
-                pointer-events:auto;background:#2b2d31;border:1px solid rgba(0,0,0,0.5);
-                border-top:2px solid #5865f2;border-radius:10px;padding:16px 18px;
-                font-family:'gg sans','Noto Sans',sans-serif;font-size:13px;color:#dcddde;
-                box-shadow:0 8px 28px rgba(0,0,0,0.65);min-width:260px;max-width:420px;
-                animation:zui-in 0.2s ease forwards;display:flex;flex-direction:column;gap:12px;
-            }
-            .zui-popup-msg { line-height:1.55;color:#dcddde; }
-            .zui-popup-btns { display:flex;gap:8px;justify-content:flex-end; }
-            .zui-popup-btns button { background:#5865f2;border:none;padding:7px 16px;border-radius:6px;color:white;cursor:pointer;font-size:13px;font-weight:500;transition:background 0.15s; }
-            .zui-popup-btns button:hover { background:#4752c4; }
-            .zui-popup-btns button.secondary { background:rgba(88,101,242,0.15);color:#8b9cf4; }
-            .zui-popup-btns button.secondary:hover { background:rgba(88,101,242,0.25); }
         `;
         document.head.appendChild(style);
         document.addEventListener("click", e => {
@@ -285,7 +455,7 @@ class ZOUI {
             ranked.forEach(f => {
                 const el = document.createElement("div");
                 el.className = "zui-search-result";
-                el.innerHTML = `<span>${this._highlight(f.label, val)}</span><span class="zui-result-tab">${f.tab}</span>`;
+                el.innerHTML = `<span>${this._highlight(f.displayLabel ?? f.label, val)}</span><span class="zui-result-tab">${f.tab}</span>`;
                 el.onclick = () => {
                     this.switchTab(f.tab);
                     f.element.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -318,7 +488,9 @@ class ZOUI {
     }
 
     _registerFeature(tab, label, element) {
-        this.features.push({ tab, label, element });
+        // Strip leading emoji / symbols so "⏺ Record" is searchable as "Record"
+        const searchLabel = label.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\p{So}\s]+/u, "").trim() || label;
+        this.features.push({ tab, label: searchLabel, displayLabel: label, element });
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -584,72 +756,13 @@ class ZOUI {
         this._registerFeature(tab, label, el);
     }
 
-    // ── Popup / Toast system ─────────────────────────────────────────────────
+    // ── Popup / Toast (delegates to ZOUIPopup) ───────────────────────────────
+    //  All three methods return a live handle: { update, setType, dismiss }
 
-    /** @private — returns (or creates) the shared fixed top-center container. */
-    _getToastContainer() {
-        let wrap = document.getElementById("zui-toast-wrap");
-        if (!wrap) {
-            wrap = document.createElement("div");
-            wrap.id = "zui-toast-wrap";
-            wrap.className = "zui-toast-wrap";
-            document.body.appendChild(wrap);
-        }
-        return wrap;
-    }
-
-    /**
-     * Show a brief auto-dismissing toast notification at the top of the screen.
-     *
-     * @param {string}  message            - Text to display
-     * @param {"info"|"success"|"warning"|"error"} [type="info"]
-     * @param {number}  [duration=3000]    - Milliseconds before auto-dismiss
-     */
-    toast(message, type = "info", duration = 3000) {
-        const wrap = this._getToastContainer();
-
-        const colors = { info: "#5865f2", success: "#23a559", warning: "#f0b232", error: "#ed4245" };
-        const icons  = {
-            info:    `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="rgba(88,101,242,0.25)"/><text x="8" y="12" text-anchor="middle" font-size="10" fill="#8b9cf4" font-weight="700">i</text></svg>`,
-            success: `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="rgba(35,165,89,0.2)"/><path d="M5 8.5l2 2 4-4" stroke="#23a559" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
-            warning: `<svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 2.5L13.5 13H2.5z" fill="rgba(240,178,50,0.2)" stroke="#f0b232" stroke-width="1.4" stroke-linejoin="round"/><text x="8" y="12" text-anchor="middle" font-size="7.5" fill="#f0b232" font-weight="700">!</text></svg>`,
-            error:   `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="rgba(237,66,69,0.2)"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#ed4245" stroke-width="1.8" stroke-linecap="round"/></svg>`,
-        };
-
-        const el = document.createElement("div");
-        el.className = "zui-toast";
-        el.style.borderLeftColor = colors[type] ?? colors.info;
-        el.innerHTML = `<span class="zui-toast-icon">${icons[type] ?? icons.info}</span><span>${message}</span>`;
-        wrap.appendChild(el);
-
-        setTimeout(() => {
-            el.classList.add("zui-out");
-            el.addEventListener("animationend", () => el.remove(), { once: true });
-        }, duration);
-    }
-
-    /**
-     * Show a top-center confirmation popup with Confirm / Cancel buttons.
-     *
-     * @param {string}    message    - Question or prompt to display
-     * @param {function}  onConfirm  - Called when the user clicks Confirm
-     * @param {function}  [onCancel] - Called when the user clicks Cancel (optional)
-     */
-    confirm(message, onConfirm, onCancel = null) {
-        const wrap = this._getToastContainer();
-
-        const el = document.createElement("div");
-        el.className = "zui-popup";
-        el.innerHTML = `
-            <div class="zui-popup-msg">${message}</div>
-            <div class="zui-popup-btns">
-                <button class="secondary zui-popup-cancel">Cancel</button>
-                <button class="zui-popup-confirm">Confirm</button>
-            </div>
-        `;
-
-        el.querySelector(".zui-popup-confirm").onclick = () => { el.remove(); onConfirm?.(); };
-        el.querySelector(".zui-popup-cancel").onclick  = () => { el.remove(); onCancel?.(); };
-        wrap.appendChild(el);
-    }
+    /** @see ZOUIPopup#toast */
+    toast(...args)   { return this.popup.toast(...args);   }
+    /** @see ZOUIPopup#confirm */
+    confirm(...args) { return this.popup.confirm(...args); }
+    /** @see ZOUIPopup#input */
+    input(...args)   { return this.popup.input(...args);   }
 }
