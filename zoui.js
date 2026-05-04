@@ -211,6 +211,40 @@ class ZOUI {
             .zui-wrapper ::-webkit-scrollbar       { width:6px; }
             .zui-wrapper ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1);border-radius:10px; }
             .zui-wrapper ::-webkit-scrollbar-thumb:hover { background:#5865f2; }
+
+            /* ── Toast / Popup system ─────────────────────────────────────── */
+            @keyframes zui-in  { from{opacity:0;transform:translateY(-10px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+            @keyframes zui-out { from{opacity:1;transform:translateY(0) scale(1)} to{opacity:0;transform:translateY(-8px) scale(0.95)} }
+
+            .zui-toast-wrap {
+                position:fixed;top:20px;left:50%;transform:translateX(-50%);
+                z-index:999999;display:flex;flex-direction:column;align-items:center;
+                gap:8px;pointer-events:none;
+            }
+            .zui-toast {
+                pointer-events:auto;background:#2b2d31;border:1px solid rgba(0,0,0,0.5);
+                border-left:3px solid #5865f2;border-radius:8px;padding:11px 16px;
+                font-family:'gg sans','Noto Sans',sans-serif;font-size:13px;color:#dcddde;
+                display:flex;align-items:center;gap:10px;
+                box-shadow:0 4px 20px rgba(0,0,0,0.55);min-width:220px;max-width:480px;
+                animation:zui-in 0.2s ease forwards;
+            }
+            .zui-toast.zui-out { animation:zui-out 0.18s ease forwards; }
+            .zui-toast-icon { flex-shrink:0;display:flex;align-items:center; }
+
+            .zui-popup {
+                pointer-events:auto;background:#2b2d31;border:1px solid rgba(0,0,0,0.5);
+                border-top:2px solid #5865f2;border-radius:10px;padding:16px 18px;
+                font-family:'gg sans','Noto Sans',sans-serif;font-size:13px;color:#dcddde;
+                box-shadow:0 8px 28px rgba(0,0,0,0.65);min-width:260px;max-width:420px;
+                animation:zui-in 0.2s ease forwards;display:flex;flex-direction:column;gap:12px;
+            }
+            .zui-popup-msg { line-height:1.55;color:#dcddde; }
+            .zui-popup-btns { display:flex;gap:8px;justify-content:flex-end; }
+            .zui-popup-btns button { background:#5865f2;border:none;padding:7px 16px;border-radius:6px;color:white;cursor:pointer;font-size:13px;font-weight:500;transition:background 0.15s; }
+            .zui-popup-btns button:hover { background:#4752c4; }
+            .zui-popup-btns button.secondary { background:rgba(88,101,242,0.15);color:#8b9cf4; }
+            .zui-popup-btns button.secondary:hover { background:rgba(88,101,242,0.25); }
         `;
         document.head.appendChild(style);
         document.addEventListener("click", e => {
@@ -548,5 +582,74 @@ class ZOUI {
 
         this.tabs[tab].appendChild(el);
         this._registerFeature(tab, label, el);
+    }
+
+    // ── Popup / Toast system ─────────────────────────────────────────────────
+
+    /** @private — returns (or creates) the shared fixed top-center container. */
+    _getToastContainer() {
+        let wrap = document.getElementById("zui-toast-wrap");
+        if (!wrap) {
+            wrap = document.createElement("div");
+            wrap.id = "zui-toast-wrap";
+            wrap.className = "zui-toast-wrap";
+            document.body.appendChild(wrap);
+        }
+        return wrap;
+    }
+
+    /**
+     * Show a brief auto-dismissing toast notification at the top of the screen.
+     *
+     * @param {string}  message            - Text to display
+     * @param {"info"|"success"|"warning"|"error"} [type="info"]
+     * @param {number}  [duration=3000]    - Milliseconds before auto-dismiss
+     */
+    toast(message, type = "info", duration = 3000) {
+        const wrap = this._getToastContainer();
+
+        const colors = { info: "#5865f2", success: "#23a559", warning: "#f0b232", error: "#ed4245" };
+        const icons  = {
+            info:    `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="rgba(88,101,242,0.25)"/><text x="8" y="12" text-anchor="middle" font-size="10" fill="#8b9cf4" font-weight="700">i</text></svg>`,
+            success: `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="rgba(35,165,89,0.2)"/><path d="M5 8.5l2 2 4-4" stroke="#23a559" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+            warning: `<svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 2.5L13.5 13H2.5z" fill="rgba(240,178,50,0.2)" stroke="#f0b232" stroke-width="1.4" stroke-linejoin="round"/><text x="8" y="12" text-anchor="middle" font-size="7.5" fill="#f0b232" font-weight="700">!</text></svg>`,
+            error:   `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="rgba(237,66,69,0.2)"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#ed4245" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+        };
+
+        const el = document.createElement("div");
+        el.className = "zui-toast";
+        el.style.borderLeftColor = colors[type] ?? colors.info;
+        el.innerHTML = `<span class="zui-toast-icon">${icons[type] ?? icons.info}</span><span>${message}</span>`;
+        wrap.appendChild(el);
+
+        setTimeout(() => {
+            el.classList.add("zui-out");
+            el.addEventListener("animationend", () => el.remove(), { once: true });
+        }, duration);
+    }
+
+    /**
+     * Show a top-center confirmation popup with Confirm / Cancel buttons.
+     *
+     * @param {string}    message    - Question or prompt to display
+     * @param {function}  onConfirm  - Called when the user clicks Confirm
+     * @param {function}  [onCancel] - Called when the user clicks Cancel (optional)
+     */
+    confirm(message, onConfirm, onCancel = null) {
+        const wrap = this._getToastContainer();
+
+        const el = document.createElement("div");
+        el.className = "zui-popup";
+        el.innerHTML = `
+            <div class="zui-popup-msg">${message}</div>
+            <div class="zui-popup-btns">
+                <button class="secondary zui-popup-cancel">Cancel</button>
+                <button class="zui-popup-confirm">Confirm</button>
+            </div>
+        `;
+
+        el.querySelector(".zui-popup-confirm").onclick = () => { el.remove(); onConfirm?.(); };
+        el.querySelector(".zui-popup-cancel").onclick  = () => { el.remove(); onCancel?.(); };
+        wrap.appendChild(el);
     }
 }

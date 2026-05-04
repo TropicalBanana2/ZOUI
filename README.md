@@ -244,6 +244,38 @@ ui.switchTab("Visuals");
 
 ---
 
+#### `toast(message, type?, duration?)`
+Show a brief auto-dismissing notification at the **top-center** of the screen.  
+Mounts to `document.body` with `position: fixed` — works over the game canvas.
+
+| Parameter  | Type     | Default  | Description                                      |
+|------------|----------|----------|--------------------------------------------------|
+| `message`  | `string` | —        | Text to display                                  |
+| `type`     | `string` | `"info"` | `"info"` · `"success"` · `"warning"` · `"error"` |
+| `duration` | `number` | `3000`   | Milliseconds before auto-dismiss                 |
+
+```js
+ui.toast("Base saved!");
+ui.toast("Build complete.", "success");
+ui.toast("Gold Stash not found.", "error");
+ui.toast("Wave incoming!", "warning", 5000);
+```
+
+---
+
+#### `confirm(message, onConfirm, onCancel?)`
+Show a top-center confirmation popup with **Confirm** and **Cancel** buttons.  
+Stays visible until the user clicks a button.
+
+```js
+ui.confirm("Delete this base?",
+    () => console.log("Confirmed!"),
+    () => console.log("Cancelled.")
+);
+```
+
+---
+
 ## License
 
 MIT — free to use, modify, and distribute.
